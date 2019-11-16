@@ -21,6 +21,7 @@ class CSharpToPython(Translator):
         self.rules.extend(CSharpToPython.LAST_RULES)
         Translator.__init__(self, codeString, self.rules, useRegex)
 
+
     RULES = [
         # true
         # True
@@ -31,6 +32,15 @@ class CSharpToPython(Translator):
         # this
         # self
         (r"(?P<left>[\r\n]+(([^\"\r\n]*\"[^\"\r\n]+\"[^\"\r\n]*)+|[^\"\r\n]+))this", r"\g<left>self", None, 0),
+        # ||
+        # or
+        (r"(?P<left>[\r\n]+(([^\"\r\n]*\"[^\"\r\n]+\"[^\"\r\n]*)+|[^\"\r\n]+))\|\|", r"\g<left>or", None, 0),
+        # &&
+        # and
+        (r"(?P<left>[\r\n]+(([^\"\r\n]*\"[^\"\r\n]+\"[^\"\r\n]*)+|[^\"\r\n]+))&&", r"\g<left>and", None, 0),
+        # &&
+        # and
+        (r"(?P<left>[\r\n]+(([^\"\r\n]*\"[^\"\r\n]+\"[^\"\r\n]*)+|[^\"\r\n]+))!\((?P<condition>[\S ]+)\)", r"\g<left>not (\g<condition>)", None, 0),
         # // ...
         # # ...
         (r"//([^\r\n]+)", r"#\1",None, 0),
@@ -57,7 +67,7 @@ class CSharpToPython(Translator):
         (r"(?P<indent>[ ]*)(?P<line>[\S \t]*);[^\r\n]*#", r"\g<indent>\g<line> #",None, 0),
         # int i = 0;
         # i = 0;
-        (r"(?P<blockIndent>[ ]*)(?P<varType>[\S]+)[ ]*(?P<varName>[a-zA-Z0-9_]+)[ ]*=", r'\g<blockIndent>\g<varName> =',None, 0),
+        (r"(?P<blockIndent>[ ]*)(?P<varType>[\w\[\]]+)[ ]*(?P<varName>\w+)[ ]*=", r'\g<blockIndent>\g<varName> =',None, 0),
         # int[] i = {1, 2, 3};
         # i = [1, 2, 3];
         (r"(?P<blockIndent>[ ]*)(?P<varName>[a-zA-Z0-9_]+)[ ]*=[ ]*{(?P<list>[\S ]+)}", r'\g<blockIndent>\g<varName> = [\g<list>]',None, 0),
@@ -75,7 +85,7 @@ class CSharpToPython(Translator):
         # }
         # if ...:
         #     ....
-        (r"(?P<blockIndent>[ ]*)if[ ]*\((?P<condition>[\S ]*)\){[\r\n]+(?P<body>(?P<indent>[ ]*)[^\r\n]+[\r\n]+((?P=indent)[^\r\n]+[\r\n]+)*)(?P=blockIndent)}", r'\g<blockIndent>if \g<condition>:\n\g<body>', None, 70),
+        (r"\n(?P<blockIndent>[ ]*)if[ ]*\((?P<condition>[\S ]*)\){[\r\n]+(?P<body>(?P<indent>[ ]*)[^\r\n]+[\r\n]+((?P=indent)[^\r\n]+[\r\n]+)*)(?P=blockIndent)}", r'\n\g<blockIndent>if \g<condition>:\n\g<body>', None, 70),
         # else{
         #     ....
         # }
@@ -100,7 +110,30 @@ class CSharpToPython(Translator):
         (r"(?P<start>[\r\n]+)(?P<blockIndent>[ ]*)(?P<returnType>\w+)[ ]+(?P<methodName>\w+)[ ]*\((?P<args>[\S ]*)\)", r'\g<start>\g<blockIndent>def \g<methodName>(\g<args>):\n\g<blockIndent>    pass', None, 0),
         # garbage delete
         (r"\n\n", r"\n", None, 0),
-        (r"(?P<blockIndent>[ ]*)(?P<other>[\S ]*){[\s]*}", r"\g<blockIndent>\g<other>:\n\g<blockIndent>    pass", None, 0)
+        (r"(?P<blockIndent>[ ]*)(?P<blockName>[a-z]+)[ ]*\([ ]*(?P<other>[\S ]*)[ ]*\)[ ]*{[\s]*}", r"\g<blockIndent>\g<blockName> \g<other>:\n\g<blockIndent>    pass", None, 0)
     ]
 
-    LAST_RULES = []
+    LAST_RULES = [
+        # python methods:
+        (r"Console\.WriteLine\((?P<args>[^\)]+)\)", r"print(\g<args>)", None, 0),
+        (r"Console\.Write\((?P<args>[^\)]+)\)", r"sys.stdout.write(\g<args>)", None, 0),
+        (r"using[ ]+\w+", r"", None, 0),
+        (r"\A", r"import random\nimport math\nimport sys", None, 0),
+        # math module:
+        (r"Math\.Abs", r"abs", None, 0),
+        (r"Math\.Round", r"round", None, 0),
+        (r"Math\.PI", r"math.pi", None, 0),
+        (r"Math\.E", r"math.e", None, 0),
+        (r"Math\.A(?P<name>[a-z]+)", r"math.a\g<name>", None, 0),
+        (r"Math\.B(?P<name>[a-z]+)", r"math.b\g<name>", None, 0),
+        (r"Math\.C(?P<name>[a-z]+)", r"math.c\g<name>", None, 0),
+        (r"Math\.D(?P<name>[a-z]+)", r"math.d\g<name>", None, 0),
+        (r"Math\.E(?P<name>[a-z]+)", r"math.e\g<name>", None, 0),
+        (r"Math\.F(?P<name>[a-z]+)", r"math.f\g<name>", None, 0),
+        (r"Math\.M(?P<name>[a-z]+)", r"math.m\g<name>", None, 0),
+        (r"Math\.R(?P<name>[a-z]+)", r"math.r\g<name>", None, 0),
+        (r"Math\.P(?P<name>[a-z]+)", r"math.p\g<name>", None, 0),
+        # random module:
+        (r"new[ ]+Random\(\)\.Next\((?P<first>\d+)[ ]*,[ ]*(?P<second>\d+)\)", r"random.randint(\g<first>, \g<second>+1)", None, 0),
+        (r"new[ ]+Random\(\)\.NextDouble\(\)", r"random.uniform(0, 1)", None, 0)
+    ]
