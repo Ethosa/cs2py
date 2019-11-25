@@ -5,7 +5,7 @@ from retranslator import Translator
 class CSharpToPython(Translator):
     def __init__(self, codeString="", extra=[], useRegex=False):
         """initialize class
-        
+
         Keyword Arguments:
             codeString {str} -- source code on C# (default: {""})
             extra {list} -- include your own rules (default: {[]})
@@ -34,22 +34,31 @@ class CSharpToPython(Translator):
         (r"(?P<left>[\r\n]+(([^\"\r\n]*\"[^\"\r\n]+\"[^\"\r\n]*)+|[^\"\r\n]+))this", r"\g<left>self", None, 0),
         # ||
         # or
-        (r"(?P<left>[\r\n]+(([^\"\r\n]*\"[^\"\r\n]+\"[^\"\r\n]*)+|[^\"\r\n]+))\|\|", r"\g<left>or", None, 0),
+        (r"\|\|", r"or", None, 0),
+        # a.length
+        # len(a)
+        (r"([a-zA-Z0-9_]+)[ ]*\.[ ]*length", r"len(\1)", None, 0),
         # &&
         # and
-        (r"(?P<left>[\r\n]+(([^\"\r\n]*\"[^\"\r\n]+\"[^\"\r\n]*)+|[^\"\r\n]+))&&", r"\g<left>and", None, 0),
-        # &&
-        # and
+        (r"&&", r"and", None, 0),
+        # !(...)
+        # not (...)
         (r"(?P<left>[\r\n]+(([^\"\r\n]*\"[^\"\r\n]+\"[^\"\r\n]*)+|[^\"\r\n]+))!\((?P<condition>[\S ]+)\)", r"\g<left>not (\g<condition>)", None, 0),
         # // ...
         # # ...
         (r"//([^\r\n]+)", r"#\1",None, 0),
+        # i++
+        # i+=1
+        (r"\+\+", r"+=1",None, 0),
+        # i--
+        # i-=1
+        (r"\-\-", r"-=1",None, 0),
         # for (int i = 0; i < 5; i++){
         #     ....
         # }
         # for i in range(0, 5, 1):
         #     ....
-        (r"(?P<blockIndent>[ ]*)for[ ]*\((?P<varType>[\S]+)[ ]*(?P<varName>[\S]+)[ ]*=[ ]*(?P<variable>[\S]+)[ ]*;[ ]*(?P=varName)[ ]*[\S]+[ ]*(?P<number>[\S]+)[ ]*;[ ]*(?P=varName)[ ]*(\+=|\-=|\+\+|\-\-)[ ]*(?P<number2>[\S]+)[ ]*\){[\r\n]+(?P<body>(?P<indent>[ ]*)[^\r\n]+[\r\n]+((?P=indent)[^\r\n]+[\r\n]+)*)(?P=blockIndent)}", r'\g<blockIndent>for \g<varName> in range(\g<variable>, \g<number>, \g<number2>):\n\g<body>', None, 70),
+        (r"(?P<blockIndent>[ ]*)for[ ]*\((?P<varType>[\S]+)[ ]*(?P<varName>[\S]+)[ ]*=[ ]*(?P<variable>[\S]+)[ ]*;[ ]*(?P=varName)[ ]*[\S]+[ ]*(?P<number>[\S ]+)[ ]*;[ ]*(?P=varName)[ ]*(\+=|\-=)[ ]*(?P<number2>[\S ]*)[ ]*\){[\r\n]+(?P<body>(?P<indent>[ ]*)[^\r\n]+[\r\n]+((?P=indent)[^\r\n]+[\r\n]+)*)(?P=blockIndent)}", r'\g<blockIndent>for \g<varName> in range(\g<variable>, \g<number>, \g<number2>):\n\g<body>', None, 70),
         # foreach (var i in array){
         #     ....
         # }
@@ -110,7 +119,12 @@ class CSharpToPython(Translator):
         (r"(?P<start>[\r\n]+)(?P<blockIndent>[ ]*)(?P<returnType>\w+)[ ]+(?P<methodName>\w+)[ ]*\((?P<args>[\S ]*)\)", r'\g<start>\g<blockIndent>def \g<methodName>(\g<args>):\n\g<blockIndent>    pass', None, 0),
         # garbage delete
         (r"\n\n", r"\n", None, 0),
-        (r"(?P<blockIndent>[ ]*)(?P<blockName>[a-z]+)[ ]*\([ ]*(?P<other>[\S ]*)[ ]*\)[ ]*{[\s]*}", r"\g<blockIndent>\g<blockName> \g<other>:\n\g<blockIndent>    pass", None, 0)
+        (r"(?P<blockIndent>[ ]*)(?P<blockName>[a-z]+)[ ]*\([ ]*(?P<other>[\S ]*)[ ]*\)[ ]*{[\s]*}", r"\g<blockIndent>\g<blockName> \g<other>:\n\g<blockIndent>    pass", None, 0),
+        # better view
+        # b==a
+        # b == a
+        (r"(\S)(==|!=|<=|<|>|>=|=)(\S)", r"\1 \2 \3", None, 0),
+        #(r"not \(([\S ]+)(?!and|or)([\S ]+)\)", r"not \1\2", None, 0)
     ]
 
     LAST_RULES = [
@@ -119,6 +133,8 @@ class CSharpToPython(Translator):
         (r"Console\.Write\((?P<args>[^\)]+)\)", r"sys.stdout.write(\g<args>)", None, 0),
         (r"using[ ]+\w+", r"", None, 0),
         (r"\A", r"import random\nimport math\nimport sys", None, 0),
+        (r"([a-zA-Z0-9_]+)\.contains\(([\S ]+)\)", r"\2 in \1", None, 0),
+        (r"([a-zA-Z0-9_]+)\.equals\(([\S ]+)\)", r"\1 == \2", None, 0),
         # math module:
         (r"Math\.Abs", r"abs", None, 0),
         (r"Math\.Round", r"round", None, 0),
@@ -133,6 +149,8 @@ class CSharpToPython(Translator):
         (r"Math\.M(?P<name>[a-z]+)", r"math.m\g<name>", None, 0),
         (r"Math\.R(?P<name>[a-z]+)", r"math.r\g<name>", None, 0),
         (r"Math\.P(?P<name>[a-z]+)", r"math.p\g<name>", None, 0),
+        (r"Math\.S(?P<name>[a-z]+)", r"math.s\g<name>", None, 0),
+        (r"Math\.T(?P<name>[a-z]+)", r"math.t\g<name>", None, 0),
         # random module:
         (r"new[ ]+Random\(\)\.Next\((?P<first>\d+)[ ]*,[ ]*(?P<second>\d+)\)", r"random.randint(\g<first>, \g<second>+1)", None, 0),
         (r"new[ ]+Random\(\)\.NextDouble\(\)", r"random.uniform(0, 1)", None, 0)
